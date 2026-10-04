@@ -443,9 +443,7 @@ const stateRef = db.ref('heart_app_state');
   let state = {
     leftIndex: 0,
     rightIndex: 0,
-    daysCount: 0,
-    lastDate: '',
-    lastCompletedDate: ''
+    daysCount: 0
   };
 
   const scene = document.getElementById('scene');
@@ -457,11 +455,6 @@ const stateRef = db.ref('heart_app_state');
 
   const PINK = { color: '#ff5c9f', glow: 'rgba(255, 92, 159, 0.75)' };
   const BLUE = { color: '#40b5ff', glow: 'rgba(64, 181, 255, 0.75)' };
-
-  function getTodayString() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
 
   // Cập nhật lên Firebase
   function syncToFirebase() {
@@ -511,19 +504,9 @@ const stateRef = db.ref('heart_app_state');
   // Lắng nghe dữ liệu Firebase theo thời gian thực
   stateRef.on('value', (snapshot) => {
     const data = snapshot.val();
-    const today = getTodayString();
-
     if (data) {
-      if (data.lastDate && data.lastDate !== today) {
-        data.leftIndex = 0;
-        data.rightIndex = 0;
-        data.lastDate = today;
-        stateRef.set(data);
-      } else {
-        updateUI(data);
-      }
+      updateUI(data);
     } else {
-      state.lastDate = today;
       syncToFirebase();
     }
   });
@@ -579,15 +562,13 @@ const stateRef = db.ref('heart_app_state');
       };
     }
 
+    // Nếu cả hai bên đều đầy bình, tự động cộng 1 ngày và dọn dẹp bình để bắt đầu chu kỳ mới
     if (state.leftIndex >= leftPoints.length && state.rightIndex >= rightPoints.length) {
-      const today = getTodayString();
-      if (state.lastCompletedDate !== today) {
-        state.daysCount = (state.daysCount || 0) + 1;
-        state.lastCompletedDate = today;
-      }
+      state.daysCount = (state.daysCount || 0) + 1;
+      state.leftIndex = 0;
+      state.rightIndex = 0;
     }
 
-    state.lastDate = getTodayString();
     syncToFirebase();
 
     const heartSize = Math.max(11, Math.min(16, scene.clientWidth * 0.038));
