@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Nho Bong Nhieu Lam</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #050711;
+  }
+
+  body {
+    position: relative;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(55, 35, 80, 0.3) 0%, transparent 65%),
+      radial-gradient(circle at 20% 20%, rgba(255, 92, 159, 0.08) 0%, transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(64, 181, 255, 0.08) 0%, transparent 45%),
+      linear-gradient(150deg, #030409 0%, #080b18 50%, #04050b 100%);
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  /* Khung hiển thị Trái tim & Số ngày ở trên đỉnh */
+  #header {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  .counter-card {
+    background: rgba(12, 16, 32, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 30px;
+    padding: 10px 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .counter-icon {
+    font-size: 1.4rem;
+    animation: heartPulse 1.8s infinite ease-in-out;
+  }
+
+  @keyframes heartPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+
+  .counter-number {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #ff80bf 0%, #ffffff 50%, #50baff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  }
+
+  /* Stars Background */
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+    animation: twinkle var(--t) ease-in-out infinite;
+    animation-delay: var(--d);
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.15; transform: scale(0.4); }
+    50% { opacity: 0.9; transform: scale(1.1); }
+  }
+
+  /* Ambient Glow behind Heart */
+  .ambient-glow {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(85vw, 480px);
+    height: min(85vw, 480px);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(140, 120, 240, 0.1) 0%, transparent 70%);
+    filter: blur(35px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Center Scene */
+  #scene {
+    position: absolute;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(84vw, 420px);
+    height: min(80vw, 400px);
+    aspect-ratio: 420 / 400;
+    z-index: 10;
+  }
+
+  /* SVG Clip definitions wrapper */
+  .svg-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+
+  /* Container for clipped hearts */
+  .cup-half {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  #leftCup {
+    clip-path: url(#clipLeft);
+    -webkit-clip-path: url(#clipLeft);
+  }
+
+  #rightCup {
+    clip-path: url(#clipRight);
+    -webkit-clip-path: url(#clipRight);
+  }
+
+  /* Liquid fill glow at bottom of each half */
+  .fill-glow {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 0%;
+    transition: height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    pointer-events: none;
+  }
+
+  #leftGlow {
+    background: linear-gradient(to top, rgba(255, 92, 159, 0.45), rgba(255, 92, 159, 0.15) 70%, transparent 100%);
+  }
+
+  #rightGlow {
+    background: linear-gradient(to top, rgba(64, 181, 255, 0.45), rgba(64, 181, 255, 0.15) 70%, transparent 100%);
+  }
+
+  /* Glass Vessel SVG Overlay */
+  #glassSvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .glass-body {
+    fill: rgba(12, 16, 32, 0.35);
+  }
+
+  .glass-stroke {
+    fill: none;
+    stroke: url(#edgeGrad);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+  }
+
+  .glass-highlight {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.22);
+    stroke-width: 1.5;
+  }
+
+  .split-line {
+    stroke: rgba(255, 255, 255, 0.4);
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+  }
+
+  .split-glow {
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 8;
+    filter: blur(4px);
+  }
+
+  /* Falling Heart Layer */
+  #fallingLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  /* Mini Heart Styling */
+  .mini-heart {
+    position: absolute;
+    width: var(--size);
+    height: var(--size);
+    transform: translate(-50%, -50%) rotate(-45deg);
+    background: var(--color);
+    border-radius: 2px;
+    filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 12px var(--glow));
+    pointer-events: none;
+  }
+
+  .mini-heart::before,
+  .mini-heart::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: inherit;
+  }
+
+  .mini-heart::before {
+    top: -50%;
+    left: 0;
+  }
+
+  .mini-heart::after {
+    top: 0;
+    left: 50%;
+  }
+
+  /* Land Animation */
+  @keyframes landBounce {
+    0% { transform: translate(-50%, -50%) rotate(-45deg) scale(1.4); }
+    50% { transform: translate(-50%, -50%) rotate(-45deg) scale(0.85); }
+    100% { transform: translate(-50%, -50%) rotate(-45deg) scale(1); }
+  }
+
+  .landed-heart {
+    position: absolute;
+    animation: landBounce 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  /* Click Ripple */
+  .ripple {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--color);
+    box-shadow: 0 0 12px var(--color);
+    transform: translate(-50%, -50%) scale(0.2);
+    animation: rippleAnim 0.65s ease-out forwards;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  @keyframes rippleAnim {
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(4);
+    }
+  }
+
+  /* Sparkle effect on land */
+  .sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 8px var(--color);
+    pointer-events: none;
+    animation: sparkleAnim 0.5s ease-out forwards;
+  }
+
+  @keyframes sparkleAnim {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="counter-card">
+    <span class="counter-icon">❤️</span>
+    <span class="counter-number" id="daysCount">0 NGÀY</span>
+  </div>
+</div>
+
+<div id="stars"></div>
+<div class="ambient-glow"></div>
+
+<svg class="svg-defs">
+  <defs>
+    <clipPath id="clipLeft" clipPathUnits="userSpaceOnUse">
+      <path d="M 210,370 C 210,370 40,240 40,140 C 40,70 100,40 160,40 C 195,40 210,65 210,65 L 210,370 Z"/>
+    </clipPath>
+    <clipPath id="clipRight" clipPathUnits="userSpaceOnUse">
+      <path d="M 210,370 C 210,370 380,240 380,140 C 380,70 320,40 260,40 C 225,40 210,65 210,65 L 210,370 Z"/>
+    </clipPath>
+  </defs>
+</svg>
+
+<div id="fallingLayer"></div>
+
+<div id="scene">
+  <div id="leftCup" class="cup-half">
+    <div id="leftGlow" class="fill-glow"></div>
+    <div id="leftHearts"></div>
+  </div>
+
+  <div id="rightCup" class="cup-half">
+    <div id="rightGlow" class="fill-glow"></div>
+    <div id="rightHearts"></div>
+  </div>
+
+  <svg id="glassSvg" viewBox="0 0 420 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+        <stop offset="35%" stop-color="#ff80bf" stop-opacity="0.5"/>
+        <stop offset="65%" stop-color="#50baff" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.85"/>
+      </linearGradient>
+    </defs>
+
+    <path class="glass-body" d="M 210,370 C 210,370 40,240 40,140 C 40,70 100,40 160,40 C 195,40 210,65 210,65 C 210,65 225,40 260,40 C 320,40 380,70 380,140 C 380,240 210,370 210,370 Z"/>
+    <line class="split-glow" x1="210" y1="65" x2="210" y2="368"/>
+    <line class="split-line" x1="210" y1="65" x2="210" y2="368"/>
+    <path class="glass-stroke" d="M 210,370 C 210,370 40,240 40,140 C 40,70 100,40 160,40 C 195,40 210,65 210,65 C 210,65 225,40 260,40 C 320,40 380,70 380,140 C 380,240 210,370 210,370 Z"/>
+    <path class="glass-highlight" d="M 204,360 C 204,360 50,235 50,142 C 50,80 102,50 156,50 C 188,50 200,70 204,72"/>
+  </svg>
+</div>
+
+<script>
+// Khởi tạo Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyByzXX0T-tpgElnHY0IcLVfL4ssErEH7jI",
+  authDomain: "bongxinhgaidangyeu.firebaseapp.com",
+  databaseURL: "https://bongxinhgaidangyeu-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bongxinhgaidangyeu",
+  storageBucket: "bongxinhgaidangyeu.firebasestorage.app",
+  messagingSenderId: "507396229052",
+  appId: "1:507396229052:web:7606cfd19272e682e3cdb9",
+  measurementId: "G-ZPKQP9X8LV"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+const stateRef = db.ref('heart_app_state');
+
+(() => {
+  // Tạo hiệu ứng sao lấp lánh
+  const starsContainer = document.getElementById('stars');
+  for (let i = 0; i < 85; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = (Math.random() * 100) + 'vw';
+    star.style.top = (Math.random() * 100) + 'vh';
+    const s = Math.random() * 2.2 + 0.8;
+    star.style.width = s + 'px';
+    star.style.height = s + 'px';
+    star.style.setProperty('--t', (Math.random() * 3 + 2.5) + 's');
+    star.style.setProperty('--d', (-Math.random() * 5) + 's');
+    starsContainer.appendChild(star);
+  }
+
+  // Tính toán tọa độ sắp xếp tim trong bình
+  function calcPoints(side) {
+    const pts = [];
+    const stepY = 13.5;
+    const stepX = 14.5;
+    
+    for (let y = 358; y >= 52; y -= stepY) {
+      let w = 0;
+      if (y > 220) {
+        w = ((370 - y) / 150) * 162;
+      } else if (y > 120) {
+        w = 162;
+      } else {
+        const factor = Math.max(0, (y - 40) / 80);
+        w = 162 * Math.pow(factor, 0.55);
+      }
+
+      let xMin, xMax;
+      if (side === 'left') {
+        xMin = Math.max(42, 204 - w);
+        xMax = 202;
+        if (y < 75) xMax = Math.min(202, 135 + (y - 40) * 1.4);
+      } else {
+        xMin = 218;
+        xMax = Math.min(378, 216 + w);
+        if (y < 75) xMin = Math.max(218, 285 - (y - 40) * 1.4);
+      }
+
+      if (xMax - xMin >= 8) {
+        const rowOffset = (Math.floor(y / stepY) % 2) * (stepX * 0.5);
+        for (let x = xMin + 6 + rowOffset; x <= xMax - 4; x += stepX) {
+          pts.push({
+            x: Math.round(x * 10) / 10,
+            y: Math.round(y * 10) / 10
+          });
+        }
+      }
+    }
+    return pts;
+  }
+
+  const leftPoints = calcPoints('left');
+  const rightPoints = calcPoints('right');
+
+  let state = {
+    leftIndex: 0,
+    rightIndex: 0,
+    daysCount: 0,
+    lastDate: '',
+    lastCompletedDate: ''
+  };
+
+  const scene = document.getElementById('scene');
+  const fallingLayer = document.getElementById('fallingLayer');
+  const leftHeartsContainer = document.getElementById('leftHearts');
+  const rightHeartsContainer = document.getElementById('rightHearts');
+  const leftGlow = document.getElementById('leftGlow');
+  const rightGlow = document.getElementById('rightGlow');
+
+  const PINK = { color: '#ff5c9f', glow: 'rgba(255, 92, 159, 0.75)' };
+  const BLUE = { color: '#40b5ff', glow: 'rgba(64, 181, 255, 0.75)' };
+
+  function getTodayString() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // Cập nhật lên Firebase
+  function syncToFirebase() {
+    stateRef.set(state);
+  }
+
+  function createLandedHeartElement(side, targetPt) {
+    const isLeft = side === 'left';
+    const config = isLeft ? PINK : BLUE;
+    const heartSize = Math.max(11, Math.min(16, scene.clientWidth * 0.038));
+    const pctX = (targetPt.x / 420) * 100;
+    const pctY = (targetPt.y / 400) * 100;
+
+    const landedHeart = document.createElement('div');
+    landedHeart.className = 'mini-heart landed-heart';
+    landedHeart.style.left = pctX + '%';
+    landedHeart.style.top = pctY + '%';
+    landedHeart.style.setProperty('--size', heartSize + 'px');
+    landedHeart.style.setProperty('--color', config.color);
+    landedHeart.style.setProperty('--glow', config.glow);
+
+    const targetContainer = isLeft ? leftHeartsContainer : rightHeartsContainer;
+    targetContainer.appendChild(landedHeart);
+  }
+
+  // Cập nhật lại giao diện từ dữ liệu Firebase
+  function updateUI(newState) {
+    state = newState;
+    document.getElementById('daysCount').innerText = `${state.daysCount || 0} NGÀY`;
+
+    leftHeartsContainer.innerHTML = '';
+    rightHeartsContainer.innerHTML = '';
+
+    for (let i = 0; i < state.leftIndex; i++) {
+      if (i < leftPoints.length) createLandedHeartElement('left', leftPoints[i]);
+    }
+    for (let i = 0; i < state.rightIndex; i++) {
+      if (i < rightPoints.length) createLandedHeartElement('right', rightPoints[i]);
+    }
+
+    const fillLeft = Math.min(100, Math.round((state.leftIndex / leftPoints.length) * 100));
+    const fillRight = Math.min(100, Math.round((state.rightIndex / rightPoints.length) * 100));
+    leftGlow.style.height = fillLeft + '%';
+    rightGlow.style.height = fillRight + '%';
+  }
+
+  // Lắng nghe dữ liệu Firebase theo thời gian thực
+  stateRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    const today = getTodayString();
+
+    if (data) {
+      if (data.lastDate && data.lastDate !== today) {
+        data.leftIndex = 0;
+        data.rightIndex = 0;
+        data.lastDate = today;
+        stateRef.set(data);
+      } else {
+        updateUI(data);
+      }
+    } else {
+      state.lastDate = today;
+      syncToFirebase();
+    }
+  });
+
+  function createRipple(x, y, color) {
+    const r = document.createElement('div');
+    r.className = 'ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    r.style.setProperty('--color', color);
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 680);
+  }
+
+  function createSparkles(containerX, containerY, color) {
+    const rect = scene.getBoundingClientRect();
+    const pxX = (containerX / 420) * rect.width;
+    const pxY = (containerY / 400) * rect.height;
+
+    for (let i = 0; i < 5; i++) {
+      const sp = document.createElement('div');
+      sp.className = 'sparkle';
+      sp.style.left = (rect.left + pxX) + 'px';
+      sp.style.top = (rect.top + pxY) + 'px';
+      sp.style.setProperty('--color', color);
+      
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * 18 + 6;
+      sp.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px');
+      sp.style.setProperty('--dy', (Math.sin(angle) * dist) + 'px');
+      
+      document.body.appendChild(sp);
+      setTimeout(() => sp.remove(), 520);
+    }
+  }
+
+  function dropHeart(side, clickX, clickY) {
+    const isLeft = side === 'left';
+    const config = isLeft ? PINK : BLUE;
+    const pts = isLeft ? leftPoints : rightPoints;
+    let idx = isLeft ? state.leftIndex : state.rightIndex;
+
+    let targetPt;
+    if (idx < pts.length) {
+      targetPt = pts[idx];
+      if (isLeft) state.leftIndex++;
+      else state.rightIndex++;
+    } else {
+      const basePt = pts[pts.length - Math.floor(Math.random() * 15) - 1];
+      targetPt = {
+        x: basePt.x + (Math.random() * 12 - 6),
+        y: basePt.y + (Math.random() * 10 - 5)
+      };
+    }
+
+    if (state.leftIndex >= leftPoints.length && state.rightIndex >= rightPoints.length) {
+      const today = getTodayString();
+      if (state.lastCompletedDate !== today) {
+        state.daysCount = (state.daysCount || 0) + 1;
+        state.lastCompletedDate = today;
+      }
+    }
+
+    state.lastDate = getTodayString();
+    syncToFirebase();
+
+    const heartSize = Math.max(11, Math.min(16, scene.clientWidth * 0.038));
+    const startX = clickX;
+    const startY = clickY;
+
+    const rect = scene.getBoundingClientRect();
+    const endX = rect.left + (targetPt.x / 420) * rect.width;
+    const endY = rect.top + (targetPt.y / 400) * rect.height;
+
+    const fallingHeart = document.createElement('div');
+    fallingHeart.className = 'mini-heart';
+    fallingHeart.style.left = startX + 'px';
+    fallingHeart.style.top = startY + 'px';
+    fallingHeart.style.setProperty('--size', heartSize + 'px');
+    fallingHeart.style.setProperty('--color', config.color);
+    fallingHeart.style.setProperty('--glow', config.glow);
+
+    fallingLayer.appendChild(fallingHeart);
+
+    const startTime = performance.now();
+    const duration = 520;
+
+    function animateFall(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      
+      const easeY = progress * progress;
+      const currentX = startX + (endX - startX) * progress;
+      const currentY = startY + (endY - startY) * easeY;
+
+      fallingHeart.style.left = currentX + 'px';
+      fallingHeart.style.top = currentY + 'px';
+
+      if (progress < 1) {
+        requestAnimationFrame(animateFall);
+      } else {
+        fallingHeart.remove();
+        createSparkles(targetPt.x, targetPt.y, config.glow);
+      }
+    }
+
+    requestAnimationFrame(animateFall);
+  }
+
+  // Sự kiện bấm vào màn hình
+  window.addEventListener('pointerdown', (e) => {
+    if (e.clientY < 90) return;
+
+    const isLeft = e.clientX < window.innerWidth / 2;
+    const color = isLeft ? PINK.color : BLUE.color;
+    
+    createRipple(e.clientX, e.clientY, color);
+    dropHeart(isLeft ? 'left' : 'right', e.clientX, e.clientY);
+  }, { passive: true });
+
+  // Vuốt/Giữ màn hình
+  let lastDropTime = 0;
+  window.addEventListener('pointermove', (e) => {
+    if (e.buttons === 1 && e.clientY >= 90) {
+      const now = performance.now();
+      if (now - lastDropTime > 90) {
+        lastDropTime = now;
+        const isLeft = e.clientX < window.innerWidth / 2;
+        dropHeart(isLeft ? 'left' : 'right', e.clientX, e.clientY);
+      }
+    }
+  }, { passive: true });
+
+})();
+</script>
+</body>
+</html>
